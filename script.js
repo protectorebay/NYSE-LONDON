@@ -1,214 +1,144 @@
-// LONDON Session Timer v2.0
-// Holiday engine intentionally omitted.
-// Session: 07:00-17:30 Europe/London
+    // LONDON Session Timer v2.1
+    // Holiday engine intentionally omitted.
+    // Session:
+    // Pre Market:    07:00 - 08:00
+    // Regular:       08:00 - 16:30
+    // Post Market:   16:30 - 17:30
+    // Time Zone: Europe/London
 
-const SESSION_OPEN_HOUR = 7;
-const SESSION_CLOSE_HOUR = 17;
+    const timer = document.getElementById("sessionTimer");
+    const alertSound = new Audio("alert.mp3");
 
-const timer = document.getElementById("sessionTimer");
+    let alertPlayed = false;
+    let currentState = "";
 
-const alertSound = new Audio("alert.mp3");
+    function formatTime(ms){
+        const total = Math.max(0, Math.floor(ms/1000));
+        const h = Math.floor(total/3600);
+        const m = Math.floor((total%3600)/60);
+        const s = total%60;
 
-let alertPlayed = false;
-let currentState = "";
-
-function formatTime(ms){
-    const total = Math.max(0, Math.floor(ms / 1000));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-
-    return String(h).padStart(2, "0") + ":" +
-           String(m).padStart(2, "0") + ":" +
-           String(s).padStart(2, "0");
-}
-
-function playAlertOnce(){
-    if(alertPlayed) return;
-
-    alertPlayed = true;
-    alertSound.currentTime = 0;
-    alertSound.play().catch(()=>{});
-}
-
-function render(statusClass,statusText,phaseClass,phaseText,action,left,pulse){
-
-    const pulseClass = pulse ? " pulse" : "";
-
-    let html = 'LONDON SESSION • ';
-
-    html += '<span class="' + statusClass + pulseClass + '">' + statusText + '</span>';
-
-    if(phaseText){
-        html += ' <span class="' + phaseClass + pulseClass + '">(' + phaseText + ')</span>';
+        return String(h).padStart(2,"0")+":"+
+               String(m).padStart(2,"0")+":"+
+               String(s).padStart(2,"0");
     }
 
-    html += ' • ' + action + ' ' + formatTime(left);
-
-    timer.innerHTML = html;
-}
-
-function stateChanged(newState){
-    if(currentState !== newState){
-        currentState = newState;
-        alertPlayed = false;
+    function playAlertOnce(){
+        if(alertPlayed) return;
+        alertPlayed = true;
+        alertSound.currentTime = 0;
+        alertSound.play().catch(()=>{});
     }
-}
 
-function updateTimer(){
+    function render(statusClass,statusText,phaseClass,phaseText,action,left,pulse){
+        const pulseClass = pulse ? " pulse" : "";
 
-    const now = new Date();
+        let html = "LONDON SESSION • ";
+        html += '<span class="'+statusClass+pulseClass+'">'+statusText+"</span>";
 
-    const london = new Date(now.toLocaleString("en-GB",{
-        timeZone:"Europe/London"
-    }));
-
-    const day = london.getDay();
-
-    // Session times
-    const open = new Date(london);
-    open.setHours(7,0,0,0);          // Pre Market opens
-
-    const preEnd = new Date(london);
-    preEnd.setHours(8,0,0,0);        // Regular Market opens
-
-    const regularEnd = new Date(london);
-    regularEnd.setHours(16,30,0,0);  // Regular Market closes
-
-    const close = new Date(london);
-    close.setHours(17,30,0,0);       // Post Market closes
-
-    // WEEKEND
-    if(day === 6 || day === 0){
-
-        let next = new Date(open);
-
-        if(day === 6){
-            next.setDate(next.getDate() + 2);
-        }else{
-            next.setDate(next.getDate() + 1);
+        if(phaseText){
+            html += ' <span class="'+phaseClass+pulseClass+'">('+phaseText+")</span>";
         }
 
-        const left = next - london;
-
-        stateChanged("weekend");
-
-        if(left <= 60000){
-            playAlertOnce();
-        }
-
-        render(
-            "weekend",
-            "WEEKEND",
-            "",
-            "",
-            "OPENS IN",
-            left,
-            left <= 60000
-        );
-
-        return;
+        html += " • "+action+" "+formatTime(left);
+        timer.innerHTML = html;
     }
 
-    // CLOSED
-    if(london < open || london >= close){
-
-        let next = new Date(open);
-
-        if(london >= close){
-            next.setDate(next.getDate() + 1);
+    function stateChanged(state){
+        if(currentState !== state){
+            currentState = state;
+            alertPlayed = false;
         }
-
-        const left = next - london;
-
-        stateChanged("closed");
-
-        if(left <= 60000){
-            playAlertOnce();
-        }
-
-        render(
-            "closed",
-            "CLOSED",
-            "",
-            "",
-            "OPENS IN",
-            left,
-            left <= 60000
-        );
-
-        return;
     }
 
-    // PRE MARKET
-    if(london < preEnd){
+    function updateTimer(){
 
-        const left = preEnd - london;
+        const now = new Date();
 
-        stateChanged("premarket");
+        // Keep en-US so Date() parses consistently in Chromium browsers.
+        const london = new Date(now.toLocaleString("en-US",{
+            timeZone:"Europe/London"
+        }));
 
-        if(left <= 60000){
-            playAlertOnce();
+        const day = london.getDay();
+
+        const open = new Date(london);
+        open.setHours(7,0,0,0);
+
+        const preEnd = new Date(london);
+        preEnd.setHours(8,0,0,0);
+
+        const regularEnd = new Date(london);
+        regularEnd.setHours(16,30,0,0);
+
+        const close = new Date(london);
+        close.setHours(17,30,0,0);
+
+        if(day === 0 || day === 6){
+
+            const next = new Date(open);
+
+            if(day === 6){
+                next.setDate(next.getDate()+2);
+            }else{
+                next.setDate(next.getDate()+1);
+            }
+
+            const left = next - london;
+
+            stateChanged("weekend");
+            if(left <= 60000) playAlertOnce();
+
+            render("weekend","WEEKEND","","","OPENS IN",left,left<=60000);
+            return;
         }
 
-        render(
-            "open",
-            "OPEN",
-            "premarket",
-            "PRE MARKET",
-            "REGULAR MARKET IN",
-            left,
-            left <= 60000
-        );
+        if(london < open || london >= close){
 
-        return;
-    }
+            const next = new Date(open);
 
-    // REGULAR MARKET
-    if(london < regularEnd){
+            if(london >= close){
+                next.setDate(next.getDate()+1);
+            }
 
-        const left = regularEnd - london;
+            const left = next - london;
 
-        stateChanged("regular");
+            stateChanged("closed");
+            if(left <= 60000) playAlertOnce();
 
-        if(left <= 60000){
-            playAlertOnce();
+            render("closed","CLOSED","","","OPENS IN",left,left<=60000);
+            return;
         }
 
-        render(
-            "open",
-            "OPEN",
-            "",
-            "",
-            "POST MARKET IN",
-            left,
-            left <= 60000
-        );
+        if(london < preEnd){
 
-        return;
+            const left = preEnd - london;
+
+            stateChanged("premarket");
+            if(left <= 60000) playAlertOnce();
+
+            render("open","OPEN","premarket","PRE MARKET","REGULAR MARKET IN",left,left<=60000);
+            return;
+        }
+
+        if(london < regularEnd){
+
+            const left = regularEnd - london;
+
+            stateChanged("regular");
+            if(left <= 60000) playAlertOnce();
+
+            render("open","OPEN","","","POST MARKET IN",left,left<=60000);
+            return;
+        }
+
+        const left = close - london;
+
+        stateChanged("postmarket");
+        if(left <= 60000) playAlertOnce();
+
+        render("open","OPEN","postmarket","POST MARKET","CLOSES IN",left,left<=60000);
     }
 
-    // POST MARKET
-
-    const left = close - london;
-
-    stateChanged("postmarket");
-
-    if(left <= 60000){
-        playAlertOnce();
-    }
-
-    render(
-        "open",
-        "OPEN",
-        "postmarket",
-        "POST MARKET",
-        "CLOSES IN",
-        left,
-        left <= 60000
-    );
-
-}
-
-updateTimer();
-setInterval(updateTimer,1000);
+    updateTimer();
+    setInterval(updateTimer,1000);
